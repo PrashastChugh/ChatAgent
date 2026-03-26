@@ -1,0 +1,88 @@
+# ================================================================
+# APPLICATION-DEV.YML — Local development overrides
+# ================================================================
+# This file is ONLY loaded when spring.profiles.active=dev
+# Put your local DB credentials, local Kafka address, etc. here.
+# NEVER commit real production secrets to version control.
+
+spring:
+
+  # ---------------------------------------------------------------
+  # DATABASE — Local PostgreSQL
+  # ---------------------------------------------------------------
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agentichat_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # HikariCP is the connection pool Spring Boot uses by default.
+      # A "pool" means we keep N database connections open and reuse them.
+      # Opening a new DB connection is expensive (~100ms). Pooling = fast.
+      pool-name: AgenticChatPool
+      maximum-pool-size: 10       # Max 10 simultaneous DB connections
+      minimum-idle: 2             # Always keep 2 connections warm
+      connection-timeout: 30000   # Wait max 30s to get a connection from pool
+      idle-timeout: 600000        # Close idle connections after 10 min
+      max-lifetime: 1800000       # Recycle connections every 30 min
+
+  # ---------------------------------------------------------------
+  # REDIS — Local Redis
+  # ---------------------------------------------------------------
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # No password for local Redis
+      timeout: 2000ms
+
+  # ---------------------------------------------------------------
+  # KAFKA — Local Kafka (via Docker)
+  # ---------------------------------------------------------------
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # key-serializer: Kafka messages have a key and a value.
+      # The key is usually a String (e.g., conversationId for partitioning).
+      # The value is JSON — we serialize Java objects to JSON strings.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # If sending fails, retry up to 3 times before giving up
+      retries: 3
+      properties:
+        # Wait to batch small messages together for efficiency
+        linger.ms: 10
+        # Strongest durability: wait for ALL replicas to acknowledge
+        acks: all
+    consumer:
+      group-id: agentic-chat-group   # Consumer group name — all instances share load
+      auto-offset-reset: earliest    # If no offset saved, start from the beginning
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        # Trust our own classes when deserializing JSON back to Java objects
+        spring.json.trusted.packages: "com.agentichat.*"
+        # Manually commit offsets — we only mark a message "done"
+        # AFTER the agent finishes processing it. If the app crashes mid-process,
+        # Kafka will re-deliver the message. This gives us at-least-once delivery.
+        enable.auto.commit: false
+
+# ---------------------------------------------------------------
+# LLM / OPENAI
+# ---------------------------------------------------------------
+llm:
+  provider: openai
+  openai:
+    api-key: ${OPENAI_API_KEY}   # Read from environment variable — never hardcode!
+    model: gpt-4o
+    temperature: 0.7
+    max-tokens: 2000
+
+# Show SQL in dev for easy debugging
+spring.jpa.properties.hibernate.show_sql: true
+
+logging:
+  level:
+    com.agentichat: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE  # Shows actual SQL parameter values

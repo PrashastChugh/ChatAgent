@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        This is your project's identity:
+        - groupId: like a namespace, usually your company/domain reversed
+        - artifactId: the name of this specific project
+        - version: your app's version
+    -->
+    <groupId>com.agentichat</groupId>
+    <artifactId>agentic-chat</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>Agentic Chat Application</name>
+
+    <!--
+        Spring Boot Parent: this is the most important part.
+        By extending spring-boot-starter-parent, we inherit:
+        - Sensible default configurations
+        - Pre-tested, compatible dependency versions
+        - Build plugin configurations
+        You almost never need to specify versions for Spring libraries manually.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.0</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <!-- Use Java 17 (LTS, widely used in production) -->
+        <java.version>17</java.version>
+        <!-- Explicit version for libraries NOT managed by Spring Boot parent -->
+        <openai-java.version>0.9.0</openai-java.version>
+    </properties>
+
+    <dependencies>
+
+        <!-- ============================================================ -->
+        <!-- SPRING BOOT CORE                                             -->
+        <!-- ============================================================ -->
+
+        <!--
+            Web starter: gives you a REST API server (Tomcat embedded).
+            This is what makes your app accessible via HTTP.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+            WebSocket starter: enables real-time bidirectional communication.
+            Unlike HTTP (request → response), WebSockets keep a persistent
+            connection open so the SERVER can push messages to the CLIENT anytime.
+            This is how live chat, stock tickers, and notifications work.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!--
+            Data JPA starter: gives you Hibernate ORM + Spring Data.
+            Instead of writing raw SQL, you define Java classes (@Entity)
+            and JPA translates them to DB tables automatically.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!--
+            Validation starter: lets you annotate DTOs with @NotNull, @Size, etc.
+            Spring automatically validates incoming request bodies for you.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+            Data Redis starter: connects your app to Redis.
+            Redis is an in-memory key-value store — blazing fast.
+            We use it to cache recent conversation context (short-term memory)
+            so we don't query PostgreSQL on every agent iteration.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- ============================================================ -->
+        <!-- DATABASE                                                     -->
+        <!-- ============================================================ -->
+
+        <!--
+            PostgreSQL JDBC driver: the "connector" between Java and PostgreSQL.
+            JPA knows how to speak SQL; this driver knows how to talk to Postgres specifically.
+            scope=runtime means it's only needed when running, not compiling.
+        -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            Flyway: database migration tool.
+            Instead of manually running SQL scripts on your DB,
+            you put them in src/main/resources/db/migration/
+            and Flyway runs them automatically in order on startup.
+            This ensures every environment (dev, staging, prod) has the same schema.
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!-- ============================================================ -->
+        <!-- KAFKA                                                        -->
+        <!-- ============================================================ -->
+
+        <!--
+            Kafka starter: connects your app to Apache Kafka.
+            Kafka is a distributed message queue.
+            Think of it as a postal system: one service "publishes" messages to a topic,
+            another service "subscribes" and processes them independently.
+            We use it so the user gets an instant response
+            while the AI agent processes asynchronously in the background.
+        -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- ============================================================ -->
+        <!-- OPENAI / LLM                                                 -->
+        <!-- ============================================================ -->
+
+        <!--
+            Official OpenAI Java SDK.
+            Provides a clean client to call GPT-4, GPT-4o, etc.
+            We wrap this behind our own LlmClient interface
+            so we can swap providers (OpenAI → Anthropic → local model)
+            without touching the rest of the code.
+        -->
+        <dependency>
+            <groupId>com.openai</groupId>
+            <artifactId>openai-java</artifactId>
+            <version>${openai-java.version}</version>
+        </dependency>
+
+        <!-- ============================================================ -->
+        <!-- HTTP CLIENT (for tools that call external APIs)              -->
+        <!-- ============================================================ -->
+
+        <!--
+            WebClient is Spring's non-blocking HTTP client.
+            Our agent tools (e.g., WebSearchTool) use this to call external APIs.
+            "Reactor Netty" is the underlying engine that makes it async.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- ============================================================ -->
+        <!-- UTILITIES                                                    -->
+        <!-- ============================================================ -->
+
+        <!--
+            Lombok: eliminates boilerplate Java code.
+            Instead of writing getters, setters, constructors manually,
+            you add annotations like @Getter, @Builder, @Slf4j.
+            Lombok generates that code at compile time.
+        -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!--
+            Jackson: converts Java objects ↔ JSON.
+            Spring uses this automatically for REST responses and request bodies.
+            jackson-databind-nullable helps handle null vs absent JSON fields cleanly.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- ============================================================ -->
+        <!-- TESTING                                                      -->
+        <!-- ============================================================ -->
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Spring Boot Maven Plugin: packages your app as a single
+                "fat JAR" that includes all dependencies.
+                You deploy one file: java -jar agentic-chat-1.0.0.jar
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Lombok annotation processor runs at compile time, not runtime -->
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

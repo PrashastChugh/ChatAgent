@@ -1,0 +1,58 @@
+# ============================================================
+# Maven build output — never commit compiled bytecode
+# ============================================================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ============================================================
+# IDE files — these are personal, not project files
+# ============================================================
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### VS Code ###
+.vscode/
+
+# ============================================================
+# SECRETS — CRITICAL: never commit these
+# ============================================================
+application-prod.yml
+application-secrets.yml
+*.env
+.env
+.env.*
+secrets/
+
+# ============================================================
+# OS files
+# ============================================================
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# Logs — generated at runtime, not source files
+# ============================================================
+*.log
+logs/
+
+# ============================================================
+# Spring Boot
+# ============================================================
+# Ignore packaged jar (it's built from source, not stored in git)
+*.jar
+!.mvn/wrapper/maven-wrapper.jar

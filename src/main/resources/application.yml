@@ -1,0 +1,111 @@
+# ================================================================
+# APPLICATION.YML — Base configuration (shared across all environments)
+# ================================================================
+# Spring reads this file on every startup.
+# Values here apply to ALL profiles (dev, staging, prod)
+# unless a profile-specific file overrides them.
+
+spring:
+  application:
+    name: agentic-chat          # Used in logs, metrics, distributed tracing
+
+  # Active profile: which environment are we running in?
+  # In production you'd set this via environment variable:
+  #   SPRING_PROFILES_ACTIVE=prod java -jar app.jar
+  profiles:
+    active: dev
+
+  # ---------------------------------------------------------------
+  # JPA / HIBERNATE
+  # ---------------------------------------------------------------
+  jpa:
+    # hibernate.ddl-auto: controls how Hibernate manages the schema
+    # 'validate' = check the DB matches our entities, but don't change it
+    # We use Flyway for schema changes, NOT Hibernate auto-DDL.
+    # Never use 'create-drop' in production — it wipes your data on restart!
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        # Dialect tells Hibernate which SQL flavor to speak
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # Show SQL in logs (very useful for debugging, turn off in prod)
+        show_sql: false
+        format_sql: true
+        # batch inserts: instead of 30 individual INSERTs, send one batch of 30
+        # Massive performance improvement for bulk operations
+        jdbc:
+          batch_size: 30
+        order_inserts: true
+        order_updates: true
+
+  # ---------------------------------------------------------------
+  # FLYWAY — Database Migration
+  # ---------------------------------------------------------------
+  flyway:
+    # Where to find migration SQL scripts
+    locations: classpath:db/migration
+    # Flyway creates a 'flyway_schema_history' table to track which
+    # migrations have already run. It never re-runs them.
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+  # ---------------------------------------------------------------
+  # JACKSON — JSON Serialization
+  # ---------------------------------------------------------------
+  jackson:
+    # Serialize Java 8+ date/time types (LocalDateTime) as ISO strings
+    # Without this, dates serialize as arrays: [2024, 1, 15, 10, 30]
+    serialization:
+      write-dates-as-timestamps: false
+    # If JSON contains unknown fields, don't throw an error — just ignore
+    deserialization:
+      fail-on-unknown-properties: false
+    # camelCase Java fields → snake_case JSON (industry standard for APIs)
+    property-naming-strategy: SNAKE_CASE
+
+  # ---------------------------------------------------------------
+  # KAFKA
+  # ---------------------------------------------------------------
+  kafka:
+    # Topic names as constants — used by both producer and consumer
+    # Defining here means you change the name in ONE place
+    topics:
+      chat-inbound: chat.message.inbound       # User message arrives → agent should process
+      chat-outbound: chat.message.outbound     # Agent finished → send response to user
+      agent-events: agent.events               # Audit log: every agent step recorded
+
+# ================================================================
+# SERVER
+# ================================================================
+server:
+  port: 8080
+  # Graceful shutdown: when you stop the app, finish in-flight requests first
+  # before actually shutting down. Critical for Kafka consumers.
+  shutdown: graceful
+
+# ================================================================
+# AGENT CONFIGURATION
+# ================================================================
+agent:
+  # How many times can the ReAct loop run before we force-stop?
+  # Safety net: prevents infinite loops if the LLM keeps calling tools forever
+  max-iterations: 10
+  # How long to wait for a single LLM call before timing out (milliseconds)
+  llm-timeout-ms: 30000
+  # How many past messages to include in the context window
+  memory-window-size: 20
+
+# ================================================================
+# LOGGING
+# ================================================================
+logging:
+  level:
+    root: INFO
+    com.agentichat: DEBUG          # Our code: verbose logging
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG       # Show SQL queries in dev
+    org.apache.kafka: WARN         # Kafka is noisy, reduce its log level
+  pattern:
+    # Custom log format: timestamp | level | thread | logger | message
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
